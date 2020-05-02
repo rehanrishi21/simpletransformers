@@ -240,6 +240,7 @@ class QuestionAnsweringModel:
             verbose=True,
             training_begin_callback=None,
             epoch_end_callback=None,
+            training_end_callback=None,
             **kwargs
     ):
         """
@@ -292,7 +293,7 @@ class QuestionAnsweringModel:
         os.makedirs(output_dir, exist_ok=True)
 
         global_step, tr_loss = self.train(
-            train_dataset, output_dir, show_running_loss=show_running_loss, eval_data=eval_data, training_begin_callback=training_begin_callback, epoch_end_callback=epoch_end_callback, **kwargs
+            train_dataset, output_dir, show_running_loss=show_running_loss, eval_data=eval_data, training_begin_callback=training_begin_callback, epoch_end_callback=epoch_end_callback, training_end_callback=training_end_callback, **kwargs
         )
 
         model_to_save = self.model.module if hasattr(self.model, "module") else self.model
@@ -302,7 +303,7 @@ class QuestionAnsweringModel:
 
         logger.info(" Training of {} model complete. Saved to {}.".format(self.args["model_type"], output_dir))
 
-    def train(self, train_dataset, output_dir, show_running_loss=True, eval_data=None, verbose=True, training_begin_callback=None, epoch_end_callback=None, **kwargs):
+    def train(self, train_dataset, output_dir, show_running_loss=True, eval_data=None, verbose=True, training_begin_callback=None, epoch_end_callback=None, training_end_callback=None, **kwargs):
         """
         Trains the model on train_dataset.
 
@@ -617,6 +618,8 @@ class QuestionAnsweringModel:
                                     logger.info(" Training terminated.")
                                     train_iterator.close()
                                 return global_step, tr_loss / global_step
+
+        training_end_callback(args["best_model_dir"])
 
         return global_step, tr_loss / global_step
 
