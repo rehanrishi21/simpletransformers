@@ -231,7 +231,16 @@ class QuestionAnsweringModel:
         return dataset
 
     def train_model(
-        self, train_data, output_dir=False, show_running_loss=True, args=None, eval_data=None, verbose=True, **kwargs
+            self,
+            train_data,
+            output_dir=False,
+            show_running_loss=True,
+            args=None,
+            eval_data=None,
+            verbose=True,
+            training_begin_callback=None,
+            epoch_end_callback=None,
+            **kwargs
     ):
         """
         Trains the model using 'train_data'
@@ -283,7 +292,7 @@ class QuestionAnsweringModel:
         os.makedirs(output_dir, exist_ok=True)
 
         global_step, tr_loss = self.train(
-            train_dataset, output_dir, show_running_loss=show_running_loss, eval_data=eval_data, **kwargs
+            train_dataset, output_dir, show_running_loss=show_running_loss, eval_data=eval_data, training_begin_callback=training_begin_callback, epoch_end_callback=epoch_end_callback, **kwargs
         )
 
         model_to_save = self.model.module if hasattr(self.model, "module") else self.model
@@ -293,7 +302,7 @@ class QuestionAnsweringModel:
 
         logger.info(" Training of {} model complete. Saved to {}.".format(self.args["model_type"], output_dir))
 
-    def train(self, train_dataset, output_dir, show_running_loss=True, eval_data=None, verbose=True, **kwargs):
+    def train(self, train_dataset, output_dir, show_running_loss=True, eval_data=None, verbose=True, training_begin_callback=None, epoch_end_callback=None, **kwargs):
         """
         Trains the model on train_dataset.
 
@@ -380,6 +389,8 @@ class QuestionAnsweringModel:
             wandb.watch(self.model)
 
         model.train()
+        if training_begin_callback:
+            training_begin_callback()
         for _ in train_iterator:
             if epochs_trained > 0:
                 epochs_trained -= 1
@@ -472,10 +483,13 @@ class QuestionAnsweringModel:
                         training_progress_scores["train_loss"].append(current_loss)
                         for key in results:
                             training_progress_scores[key].append(results[key])
-                        report = pd.DataFrame(training_progress_scores)
-                        report.to_csv(
-                            os.path.join(args["output_dir"], "training_progress_scores.csv"), index=False,
-                        )
+                        if epoch_end_callback:
+                            epoch_end_callback(training_progress_scores)
+                        else:
+                            report = pd.DataFrame(training_progress_scores)
+                            report.to_csv(
+                                os.path.join(args["output_dir"], "training_progress_scores.csv"), index=False,
+                            )
 
                         if args["wandb_project"]:
                             wandb.log(self._get_last_metrics(training_progress_scores))
